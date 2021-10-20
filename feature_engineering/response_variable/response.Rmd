@@ -1,0 +1,67 @@
+
+```{r, message = FALSE}
+library(vroom)
+library(dplyr)
+library(janitor)
+library(stringr)
+library(caret)
+```
+
+```{r, message = FALSE}
+#filter for eligible individuals and only keep individual id
+individual <- vroom('/data/p_dsi/bridgestone/data/individual.csv',
+                    col_types = c(MZB_INDIV_ID = 'd')) %>% 
+              filter(AH1_RES_BUS_INDC == 'R' & 
+                    SUPP1_BUS_PANDER == 'N' &
+                    EMAIL_OPTIN_IND == 'Y') %>% select(MZB_INDIV_ID)
+
+#add product_type and remove columns we don't use
+feature_DESC <- vroom("feature_DESC.csv") %>% select(PROD_GROUP_DESC, CATEGORY_DESC, SEGMENT_DESC, CLASS_DESC, product_type = feature_engineering)
+product <- vroom('/data/p_dsi/bridgestone/data/product.csv',delim = '|') %>%
+     left_join(feature_DESC, by = c( "PROD_GROUP_DESC", "CATEGORY_DESC", "SEGMENT_DESC", "CLASS_DESC")) %>% select(-c(PROD_GROUP_DESC, CATEGORY_CODE, CATEGORY_DESC, SEGMENT_CODE, SEGMENT_DESC, CLASS_CODE, CLASS_DESC))
+
+store <- vroom('/data/p_dsi/bridgestone/data/store.csv',delim = '|',
+               col_types = c(ZIP_CODE = 'c', STORE_ID = 'd'))
+
+vehicle <- vroom('/data/p_dsi/bridgestone/data/vehicle.csv',delim = '|',
+                 col_types = c(VEHICLE_ID = 'c')) %>% select(-SUB_MODEL)
+
+#list of sales data
+files <- list.files('/data/p_dsi/bridgestone/data/', pattern = '^sales_')
+Nov_17 <- files[32]
+```
+
+
+```{r, message = FALSE}
+#read in 11/17
+nov_17_data <- vroom(paste0('/data/p_dsi/bridgestone/data/',Nov_17),delim='|',
+                      col_types = c(INDIV_ID = 'd', STORE_ID = 'd', TRAN_ID = 'c',
+                                    VEHICLE_ID = 'c', ARTICLE_ID = 'd')) %>%
+   inner_join(individual, by = c("INDIV_ID" = "MZB_INDIV_ID")) %>%
+   left_join(vehicle, by = c("VEHICLE_ID")) %>%
+   left_join(product, by = "ARTICLE_ID")
+
+#feature did buy tires in 11/17?
+tires <- nov_17_data %>% filter(product_type == 'tire') %>% 
+    group_by(VEHICLE_ID) %>% mutate(tires_bought = ifelse(sum(UNITS) > 0, 1, 0)) %>% ungroup()
+tires <- tires %>% select(VEHICLE_ID, tires_bought) %>% unique()
+nov_17_data <- left_join(nov_17_data, tires, by = c('VEHICLE_ID')) 
+nov_17_data$tires_bought <- ifelse(is.na(nov_17_data$tires_bought), 0, nov_17_data$tires_bought)
+v_tires_nov <- nov_17_data %>% select(VEHICLE_ID, tires_bought) %>% unique()
+
+eligible_vehicles <- vroom('/data/p_dsi/bridgestone/teams/team1/eligible_vehicles.csv', delim = ',',
+                         col_types = c(VEHICLE_ID = 'c')) %>% select(-tires_bought)
+
+eligible_vehicles <- eligible_vehicles %>% left_join(v_tires_nov, by = c('VEHICLE_ID'))
+eligible_vehicles$tires_bought <- ifelse(is.na(eligible_vehicles$tires_bought),0,eligible_vehicles$tires_bought)
+eligible_vehicles <- eligible_vehicles %>% select(VEHICLE_ID, tires_bought) %>% unique()
+
+#write.table(eligible_vehicles, '/data/p_dsi/bridgestone/teams/team1/eligible_vehicles.csv',
+#            sep = ',', row.names = FALSE)
+```
+
+
+
+
+
+

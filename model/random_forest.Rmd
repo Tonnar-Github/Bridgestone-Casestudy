@@ -1,0 +1,170 @@
+---
+title: "tree models"
+output: html_notebook
+---
+
+```{r, message = FALSE, warning = FALSE}
+library(vroom)
+library(caret)
+library(dplyr)
+```
+
+```{r, message = FALSE}
+train <- vroom('train_model2.csv', delim = ',',
+               col_types = c(tires_bought = 'f')) %>% select(-VEHICLE_ID)
+
+table(train$tires_bought)
+```
+
+
+# Random Forest
+
+```{r}
+#1.5 hour run time
+Sys.time()
+set.seed(1028)
+cv <- trainControl(method = "cv", number = 5)
+tunegrid <- expand.grid(.mtry = c(3,4,5), .min.node.size = c(1, 5, 10, 20, 40, 80), .splitrule = "gini")
+tuned_model <- train(tires_bought ~., data = train, trControl = cv,
+                     method = 'ranger', tuneGrid = tunegrid, na.action = na.omit)
+tuned_model
+Sys.time()
+```
+
+```{r}
+saveRDS(tuned_model, 'rf_model1.rds')
+```
+
+# Base line model
+
+```{r}
+library(doParallel)
+cl <- makePSOCKcluster(5)
+registerDoParallel(cl)
+```
+
+
+```{r}
+#base line
+Sys.time()
+set.seed(1028)
+cv <- trainControl(method = "cv", number = 5)
+mtry <- sqrt(ncol(train))
+tunegrid <- expand.grid(.mtry = mtry)
+base_model <- train(tires_bought ~., data = train, trControl = cv,
+                     method = 'rf', tuneGrid = tunegrid, na.action = na.omit)
+base_model
+Sys.time()
+
+saveRDS(base_model, 'rf_base_model.rds')
+
+# remove features with many NAs
+train_subset <- train %>% select(-cross_section, -aspect_ratio, -rim_size)
+Sys.time()
+set.seed(1028)
+cv <- trainControl(method = "cv", number = 5)
+tunegrid <- expand.grid(.mtry = c(2,4,6,8,10), .min.node.size = c(1, 5, 10, 20, 40, 80), .splitrule = "gini")
+subset_model <- train(tires_bought ~., data = train_subset, trControl = cv, ntree = 2000,
+                     method = 'ranger', tuneGrid = tunegrid, na.action = na.omit)
+subset_model
+Sys.time()
+
+saveRDS(subset_model, 'rf_subset_model.rds')
+
+# Grid Search
+Sys.time()
+set.seed(1028)
+cv <- trainControl(method = "cv", number = 5)
+tunegrid <- expand.grid(.mtry = c(2,4,6,8,10), .min.node.size = c(1, 5, 10, 20, 40, 80), .splitrule = "gini")
+grid_model <- train(tires_bought ~., data = train, trControl = cv, ntree = 2000,
+                     method = 'ranger', tuneGrid = tunegrid, na.action = na.pass)
+grid_model
+Sys.time()
+
+saveRDS(grid_model, 'rf_grid_model.rds')
+```
+
+# Tonnar's code
+
+```{r}
+library(tidyverse)
+library(vroom)
+library(tidymodels)
+library(doParallel)
+library(workflows)
+library(tune)
+library(ranger)
+```
+
+```{r}
+set.seed(69420)
+```
+
+```{r}
+all_cores <- parallel::detectCores(logical = FALSE)
+cl <- makePSOCKcluster(all_cores)
+registerDoParallel(cl)
+```
+
+```{r}
+train <- vroom('train_model2.csv', delim = ',',
+               col_types = c(tires_bought = 'f')) %>% select(-VEHICLE_ID)
+train <- train %>% select(-cross_section,-aspect_ratio,-rim_size)
+train <- train %>% na.omit()
+```
+
+```{r}
+rf_model <- rand_forest(
+  trees = tune(),               #Number of total trees for the ensamble
+  mtry = tune(),                #Number of variables to split at each size
+  min_n = tune(),               #Min number of data points allowed 
+  ) %>% 
+  set_engine("randomForest") %>% 
+  set_mode("classification")
+rf_model
+```
+
+```{r}
+rf_grid <- grid_regular(
+  mtry(range = c(5, 20)),
+  min_n(range = c(2, 10)),
+  trees(range = c(100,1000)),
+  levels = 5
+)
+rf_grid
+```
+
+```{r}
+cv <- vfold_cv(data = train, v = 5, strata = NULL)
+```
+
+```{r}
+rf_wf <- workflow() %>% 
+  add_formula(tires_bought ~.) %>% 
+  add_model(rf_model)
+```
+
+```{r}
+rf_call <- tune_grid(
+  rf_wf,
+  grid = rf_grid,
+  resamples = cv,
+  control = control_grid(save_pred = TRUE, allow_par = TRUE)
+)
+rf_call
+```
+```{r}
+rf_call %>%
+  collect_metrics() %>%
+  filter(.metric == "roc_auc") %>%
+  select(mean, min_n, mtry) %>%
+  pivot_longer(min_n:mtry,
+    values_to = "value",
+    names_to = "parameter"
+  ) %>%
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(show.legend = FALSE) +
+  facet_wrap(~parameter, scales = "free_x") +
+  labs(x = NULL, y = "AUC")
+```
+

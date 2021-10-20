@@ -1,0 +1,156 @@
+---
+title: "Data Cleaning"
+output: html_notebook
+---
+
+```{r, message = FALSE}
+library(vroom)
+library(dplyr)
+library(janitor)
+library(stringr)
+```
+
+This will eventually be changed to the data sets once we have those ready.
+```{r, message = FALSE}
+s <- vroom('/data/p_dsi/bridgestone/teams/team1/sample.csv',delim =',') %>% 
+  filter(AH1_RES_BUS_INDC == 'R' & SUPP1_BUS_PANDER == 'N' & EMAIL_OPTIN_IND == 'Y')
+```
+
+# Clean Existing Columns
+
+```{r}
+#discount flag
+s$DISCOUNT_FLAG <- ifelse(s$DISCOUNT_FLAG == 'E', 'Y', s$DISCOUNT_FLAG)
+
+#cross section
+s$CROSS_SECTION <- ifelse(s$CROSS_SECTION == 'NONE', NA, s$CROSS_SECTION)
+s$CROSS_SECTION <- as.numeric(s$CROSS_SECTION)
+
+#aspect ratio
+s$ASPECT_RATIO <- ifelse(s$ASPECT_RATIO == 'NONE', NA, s$ASPECT_RATIO)
+s$ASPECT_RATIO <- as.numeric(s$ASPECT_RATIO)
+
+#rim size
+s$RIM_SIZE <- ifelse(str_detect(s$RIM_SIZE, '[[:alpha:]]'), NA, s$RIM_SIZE)
+s$RIM_SIZE <- as.numeric(s$RIM_SIZE)
+s$RIM_SIZE <- ifelse(s$RIM_SIZE > 1000, s$RIM_SIZE/100, s$RIM_SIZE)
+```
+
+# Clean MODEL_YEAR
+
+```{r}
+# Clean Col_15~23
+# Only MODEL_YEAR has some outliers
+# other columns are quite neat without NA and outliers
+s$MODEL_YEAR <- ifelse(s$MODEL_YEAR < 1900 | s$MODEL_YEAR > 2020, NA, s$MODEL_YEAR)
+```
+
+
+```{r}
+# Grouping key words into appropriate MAKE's using the or pipe
+equipment_matches <- "WORKHORSE|UTILITY|SNOW PRO|PARK|MOTOR|MOBILE|HOME|LOAD|16 FT|horse|trailer|ALJO|BAJA|big|tex|bobcat|BTMT|CARGO|CARRY|EZ|EZ-PULL|FLAGSTAFF|FLAT|BED|TAILER|TRAILOR"
+leisure_matches <- "FLEETWOOD|FOREST|WINNS|Freightliner|GOLF|HAULING|HOME|JAYCO|JOHN|KARAV|KEYSTONE|MASTER|CRAFT|OPEN|POLARIS|RAMPAGE|RANGER|ROAD|ROCKWOOD|SHASTA|SHORE|SKEETER|SPRINGDALE|TITAN|TRAILS|TRAVEL|TRL|TRLR|WATERCRAFT|WEEKENDER|WINNEBAGO|boat|camper|RV|coachman|coleman|DUTCHMEN|VISION"
+alfa_Romeo_matches <- "alfa"
+acura_matches <- "ACURA"
+high_end_matches <- "	ASTON|MARTIN|AUSTIN|BACCIO|BEAR|BENT| BUGATTI|CARD|CORVAIR|COUGAR|CRONK|DELOREAN|FERRARI|Brokers|Real|Jag|JAVOLIN|LOTUS|MASERATI|MG|MORGAN|PEUGEOT|ROAD RUNNER|ROLLING THUNDER|ROLLS-ROYCE|Shelby|Triumph"
+motorcycle_matches <- "ASVE|buell|burgman|DONFANG|EVERGREEN|HARLEY|KAWASAKI|MOTOGUZZI|Suzuki|VESPA|VIKING|YAMAHA"
+audi_matches <- "audi"
+Buick_matches <- "BUICK"
+BMW_matches <- "BMW"
+cadillac_matches <- "cadillac"
+chevrolet_matches <- "CHEV"
+chrys_matches <- "Chrys"
+dodge_matches <- "dodge"
+fiat_matches <- "fiat"
+ford_matches <- "ford"
+hyundai_matches <- "GENESIS|Hyundai"
+gmc_matches <- "GMC"
+honda_matches <- "Honda"
+hummer_matches <- "HUMMER|AM_general"
+infiniti_matches <- "INFINITI"
+isuzu_matches <- "Isuzu|Izuzu"
+jeep_matches <- "Jeep"
+kia_matches <- "Kia"
+rover_matches <- "land|range|rover"
+lexus_matches <- "Lexus"
+lincoln_matches <- "Lincoln"
+mazda_matches <- "Mazda"
+mercedes_matches <- "mercedes"
+mercury_matches <- "Mercury"
+mini_matches <- "Mini"
+mitsu_matches <- "Mitsubishi"
+Nissan_matches <- "Nissan"
+oldsmobile_matches <- "Oldsmobile"
+plymouth_matches <- "Plymouth"
+pontiac_matches <- "pontiac"
+porsche_matches <- "porsche"
+ram_matches <- "Ram"
+saab_matches <- "	SAAB"
+saturn_matches <- "Saturn"
+scion_matches <- "Scion"
+smart_matches <- "SMART"
+subaru_matches <- "Subaru"
+tesla_matches <- "TESLA"
+toyota_matches <- "toyota"
+volkswagen_matches <- "Volkswagen"
+volvo_matches <- "Volvo"
+other_matches <- "C&M|CA|CANAM|CM|CT|CUSTOM|DaeWOO|DeSoto|DORSEY|EAGLE|ENCLOSED|FORCE|GEM|GENUINE|GEO|HALLMARK|HAND|HD|INDIAN|INTERNATIONAL|JACO|JAY|KZ|LOOSE|MAGNUM|MERKUR|MOBILITY|VENTURES|NITRO|NO|OTHER|PIAG|PRIME|QUAT|RINGO|ROYAL|SEBRING|SGAC|SPRINTER|STOCK|CORVAIR|Studebaker|TAHOE|TAO|THE|TIFFIN|TIOGA|UNKNOWN|VOID THIS ORD|VPG|CHANGZHOU|SUZ" 
+```
+
+This code replaces the matches. It takes a while to run 15 minutes
+```{r}
+#replace the data using a mutate and a casewhen to create MAKE_NEW containing the appropiately grouped makes
+s <- s %>%
+  mutate(
+    MAKE_NEW = case_when(
+      str_detect(MAKE, regex(equipment_matches, ignore_case = TRUE)) ~ "EQUIPMENT",
+      str_detect(MAKE, regex(leisure_matches, ignore_case = TRUE)) ~ "LEISURE",
+      str_detect(MAKE, regex(alfa_Romeo_matches, ignore_case = TRUE)) ~ "ALFA_ROMEO",
+      str_detect(MAKE, regex(acura_matches, ignore_case = TRUE)) ~ 'ACURA',
+      str_detect(MAKE, regex(high_end_matches, ignore_case = TRUE)) ~ 'HIGH_END',
+      str_detect(MAKE, regex(motorcycle_matches, ignore_case = TRUE)) ~ 'MOTORCYCLE',
+      str_detect(MAKE, regex(audi_matches, ignore_case = TRUE)) ~ 'AUDI',
+      str_detect(MAKE, regex(Buick_matches, ignore_case = TRUE)) ~ 'BUICK',
+      str_detect(MAKE, regex(BMW_matches, ignore_case = TRUE)) ~ 'BMW',
+      str_detect(MAKE, regex(cadillac_matches, ignore_case = TRUE)) ~ "CADILLAC",
+      str_detect(MAKE, regex(chevrolet_matches, ignore_case = TRUE)) ~ 'CHEVROLET',
+      str_detect(MAKE, regex(chrys_matches, ignore_case = TRUE)) ~ 'CHRYSLER',
+      str_detect(MAKE, regex(dodge_matches, ignore_case = TRUE)) ~ "DODGE",
+      str_detect(MAKE, regex(fiat_matches, ignore_case = TRUE)) ~ 'FIAT',
+      str_detect(MAKE, regex(ford_matches, ignore_case = TRUE)) ~ 'FORD',
+      str_detect(MAKE, regex(hyundai_matches, ignore_case = TRUE)) ~ 'HYUNDAI',
+      str_detect(MAKE, regex(gmc_matches, ignore_case = TRUE)) ~ 'GMC',
+      str_detect(MAKE, regex(honda_matches, ignore_case = TRUE)) ~ 'HONDA',
+      str_detect(MAKE, regex(hummer_matches, ignore_case = TRUE)) ~ 'HUMMER',
+      str_detect(MAKE, regex(infiniti_matches, ignore_case = TRUE)) ~ 'INFINITI',
+      str_detect(MAKE, regex(isuzu_matches, ignore_case = TRUE)) ~ 'ISUZU',
+      str_detect(MAKE, regex(jeep_matches, ignore_case = TRUE)) ~ 'JEEP',
+      str_detect(MAKE, regex(kia_matches, ignore_case = TRUE)) ~ 'KIA',
+      str_detect(MAKE, regex(rover_matches, ignore_case = TRUE)) ~ 'ROVER',
+      str_detect(MAKE, regex(lexus_matches, ignore_case = TRUE)) ~ 'LEXUS',
+      str_detect(MAKE, regex(lincoln_matches, ignore_case = TRUE)) ~ 'LINCOLN',
+      str_detect(MAKE, regex(mazda_matches, ignore_case = TRUE)) ~ 'MAZADA',
+      str_detect(MAKE, regex(mercedes_matches, ignore_case = TRUE)) ~ 'MERCEDES',
+      str_detect(MAKE, regex(mercury_matches, ignore_case = TRUE)) ~ 'MERCURY',
+      str_detect(MAKE, regex(mini_matches, ignore_case = TRUE)) ~ 'MINI',
+      str_detect(MAKE, regex(mitsu_matches, ignore_case = TRUE)) ~ 'MITSUBISHI',
+      str_detect(MAKE, regex(Nissan_matches, ignore_case = TRUE)) ~ 'NISSAN',
+      str_detect(MAKE, regex(oldsmobile_matches, ignore_case = TRUE)) ~ 'OLDSMOBILE',
+      str_detect(MAKE, regex(plymouth_matches, ignore_case = TRUE)) ~ 'PLYMOUTH',
+      str_detect(MAKE, regex(pontiac_matches, ignore_case = TRUE)) ~ 'PONTIAC',
+      str_detect(MAKE, regex(porsche_matches, ignore_case = TRUE)) ~ 'PORSCHE',
+      str_detect(MAKE, regex(ram_matches, ignore_case = TRUE)) ~ 'RAM',
+      str_detect(MAKE, regex(saab_matches, ignore_case = TRUE)) ~ 'SAAB',
+      str_detect(MAKE, regex(saturn_matches, ignore_case = TRUE)) ~ 'SATURN',
+      str_detect(MAKE, regex(scion_matches, ignore_case = TRUE)) ~ 'SCION',
+      str_detect(MAKE, regex(smart_matches, ignore_case = TRUE)) ~ 'SMART',
+      str_detect(MAKE, regex(subaru_matches, ignore_case = TRUE)) ~ 'SUBARU',
+      str_detect(MAKE, regex(tesla_matches, ignore_case = TRUE)) ~ 'TESLA',
+      str_detect(MAKE, regex(toyota_matches, ignore_case = TRUE)) ~ 'TOYOTA',
+      str_detect(MAKE, regex(volkswagen_matches, ignore_case = TRUE)) ~ 'VOLKSWAGEN',
+      str_detect(MAKE, regex(volvo_matches, ignore_case = TRUE)) ~ 'VOLVO',
+      str_detect(MAKE, regex(other_matches, ignore_case = TRUE)) ~ 'OTHER',
+      TRUE ~ MAKE
+    )
+  )
+```

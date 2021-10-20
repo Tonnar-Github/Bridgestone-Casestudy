@@ -1,0 +1,193 @@
+
+```{r}
+library(tidyverse)
+library(vroom)
+library(tidymodels)
+library(doParallel)
+library(workflows)
+library(tune)
+library(xgboost)
+library(caret)
+library(glmnet)
+```
+
+
+```{r}
+set.seed(42069)
+```
+
+
+```{r}
+all_cores <- parallel::detectCores(logical = FALSE)
+
+library(doParallel)
+cl <- makePSOCKcluster(all_cores)
+registerDoParallel(cl)
+```
+
+
+```{r}
+train <- vroom('Desktop/train.csv', delim = ',',
+               col_types = c(tires_bought = 'f')) %>% select(-VEHICLE_ID)
+
+test <- vroom('Desktop/test.csv', delim = ',',
+               col_types = c(tires_bought = 'f')) %>% select(-VEHICLE_ID)
+```
+
+
+```{r}
+train <- train %>% select(-c(make,model,ZIP_CODE,zip_code,state))
+test <- test %>% select(-c(make,model,ZIP_CODE,zip_code,state))
+train <- train[1:10000,]
+```
+
+
+
+######## Gradient Boosted Trees ############
+```{r}
+xgb_model<- boost_tree(
+  trees = 575,                               #Number of total trees for the ensemble (Grid Searched)
+  mtry = 25,                                 #Number of variables to split at each size (Grid Searched)
+  tree_depth = 4,                            #How many splits the tree can actually have (Grid Searched)
+  min_n = 17,                                #Min number of data points allowed (Grid Searched)
+  loss_reduction = 0.00047767202310464,      #Loss Reduction to continue splitting (Grid Searched)
+  learn_rate = .001,                         #The shrinkage to prevent overfitting from iter to iter      
+  ) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")%>%
+  fit(tires_bought ~., data = train)
+
+  
+prediction <- predict(xgb_model,test)
+
+confusionMatrix(data = prediction$.pred_class, ref = test$tires_bought, positive = "1")
+```
+
+
+######## Ridge Logistic Regression ############
+```{r}
+lambdas <- seq(1, 0, by =-.05)
+y_hat <- train$tires_bought
+x <- train %>% select(-tires_bought) %>% data.matrix()
+y <- test$tires_bought
+
+
+ridge_model <- cv.glmnet(x = x, y = y_hat, family = "binomial", alpha = 0, lambda = lambdas)
+best_lambda <- ridge_model$lambda.1se
+
+ridge_model <- glmnet(x = x, y = y_hat, family = "binomial", alpha = 0, lambda = best_lambda)
+
+prediction <- predict.glmnet(ridge_model, data.matrix(test %>% select(-tires_bought)))
+prediction <-ifelse(prediction >.5, 1, 0)
+
+confusionMatrix(data = as.factor(prediction), ref = y, positive = "1")
+```
+
+
+######## Principle Component Analysis ############
+```{r}
+pca_train_y <- train %>% select(tires_bought)
+pca_train  <- train %>% select(-tires_bought)
+```
+
+# 2. Select the variables associated with PCA
+
+Next we want to grab the variables associated with the PCA in this case we are going to choose the first two components applied to the original matrix for the PCA analysis.
+```{r}
+pca_train <- prcomp(pca_train)
+```
+
+
+# 3. Graphing the PCA
+
+We now want to graph the PCA vectors that describe most of our data. We can see that column 1 accounts for most of the variance. 
+```{r}
+var_explained_df <- data.frame(PC=paste0("PC",1:35),
+                      var_explained = (pca_train$sdev) ^2 / sum((pca_train$sdev) ^ 2))
+var_explained_df <-  mutate(var_explained_df, num = rep(NA,nrow(var_explained_df)))
+count=1
+for (i in 1:nrow(var_explained_df)) {
+  var_explained_df$num[[i]] = count
+  count <- count + 1
+}
+# subsetting the top 20 so it's easier to read to graph
+top_var_explain <- var_explained_df[1:35,]
+top_var_explain %>%
+  ggplot(aes(x = num, y = var_explained, group = 1))+
+  geom_point()+
+  geom_line()+
+  scale_x_continuous(breaks = seq(1,20,1), labels = function(x){paste0("PC",x)},limits = c(1,20))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  scale_y_continuous(breaks = seq(0,1,.1), limits = c(0,1),labels = scales::percent)
+```
+
+# 4. Loadings
+```{r}
+loadings <-pca_train$rotation
+loadings <- loadings[,1:3]
+PC1 <- data.frame(loadings[,1])
+PC2  <- data.frame(loadings[,2])
+PC3 <- data.frame(loadings[,3])
+PC1 %>% arrange(desc(loadings...1.))
+PC2 %>% arrange(desc(loadings...2.))
+PC3 %>% arrange(desc(loadings...3.))
+```
+
+
+######## Principle Component Analysis Modeling ############
+
+```{r}
+pca_train_y <- train %>% select(tires_bought)
+pca_train  <- train %>% select(-tires_bought)
+
+pca_train <- prcomp(pca_train)
+pca_train_data <- pca_train$x[,1:3]  %>% data.frame()
+
+pca_test<-predict(pca_train,test %>% select(-tires_bought))
+pca_test_data <- pca_test[,1:3] %>% data.frame()
+
+pca_train_data$tires_bought <- pca_train_y$tires_bought
+pca_test_data$tires_bought <- test$tires_bought
+```
+
+
+```{r}
+lambdas <- seq(1, 0, by =-.05)
+y_hat <- pca_train_data$tires_bought
+x <- pca_train_data %>% select(-tires_bought) %>% data.matrix()
+y <- pca_test_data$tires_bought
+
+
+ridge_model <- cv.glmnet(x = x, y = y_hat, family = "binomial", alpha = 0, lambda = lambdas)
+best_lambda <- ridge_model$lambda.1se
+
+ridge_model <- glmnet(x = x, y = y_hat, family = "binomial", alpha = 0, lambda = best_lambda)
+
+prediction <- predict.glmnet(ridge_model, data.matrix(pca_test_data %>% select(-tires_bought)))
+prediction <-ifelse(prediction >.5, 1, 0)
+
+confusionMatrix(data = as.factor(prediction), ref = y, positive = "1")
+```
+
+
+```{r}
+xgb_model<- boost_tree(
+  trees = 575,                               #Number of total trees for the ensemble (Grid Searched)
+  mtry = 25,                                 #Number of variables to split at each size (Grid Searched)
+  tree_depth = 4,                            #How many splits the tree can actually have (Grid Searched)
+  min_n = 17,                                #Min number of data points allowed (Grid Searched)
+  loss_reduction = 0.00047767202310464,      #Loss Reduction to continue splitting (Grid Searched)
+  learn_rate = .001,                         #The shrinkage to prevent overfitting from iter to iter      
+  ) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")%>%
+  fit(tires_bought ~., data = pca_train_data)
+
+  
+prediction <- predict(xgb_model,pca_test_data)
+
+confusionMatrix(data = prediction$.pred_class, ref = pca_test_data$tires_bought, positive = "1")
+```
+
+
+

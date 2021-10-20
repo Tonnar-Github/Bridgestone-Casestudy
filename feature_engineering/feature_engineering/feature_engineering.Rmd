@@ -1,0 +1,340 @@
+---
+title: "Feature Engineering"
+output: html_notebook
+---
+
+```{r, message = FALSE, warning = FALSE}
+library(vroom)
+library(dplyr)
+library(janitor)
+library(stringr)
+library(lubridate)
+library(mice)
+```
+
+This will eventually be changed to the data sets once we have those ready.
+```{r, message = FALSE}
+train <- vroom('/data/p_dsi/bridgestone/teams/team1/training.csv', delim = ',') %>% filter(!is.na(UNITS))
+validate <- vroom('/data/p_dsi/bridgestone/teams/team1/validation.csv', delim = ',')
+```
+
+# Model
+
+Standardize the appearnce
+```{r}
+#to upper capitalizes both of these columns
+train$MODEL <- toupper(train$MODEL)
+train$MAKE <- toupper(train$MAKE)
+```
+
+Certain brands need some extra care to properly fix
+```{r}
+#^ is regex for starts with and the | is the or operator telling us what models to ignore
+cars_to_ignore = "^GRAND|PT CRUISER|^TOWN|^RAM"
+```
+
+This is the actual process of replacing the data it happens in two major parts the general easy to handle cars then the other 
+```{r}
+#part one because we want to replace where it is not equal to we needed to negate those that arent in the cars_to_ignore and then strip after a white space. If it is in the list this replaces it with itself or you get NA's 
+train <- train %>%
+  mutate(
+    NEW_MODEL = case_when(
+      str_detect(MODEL,regex(cars_to_ignore), negate = TRUE) ~ sub(" .*", "", train$MODEL),
+      str_detect(MODEL, regex(cars_to_ignore)) ~ train$MODEL))
+#part two This checks for the special cases mentioned above and groups them correctly this way generally done if there were similar car makes with the same name preventing stripping after the white space
+train$NEW_MODEL <- ifelse(grepl('^PT', train$NEW_MODEL), "PT CRUISER", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('^GRAND CHEROKEE', train$NEW_MODEL), "GRAND CHEROKEE", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('^GRAND CARAVAN', train$NEW_MODEL), "GRAND CARAVAN", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('^TOWN & COUNTRY', train$NEW_MODEL), "TOWN & COUNTRY", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('^TOWN CAR', train$NEW_MODEL), "TOWN CAR", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('^RAM 1500', train$NEW_MODEL), "1500", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('^RAM 2500', train$NEW_MODEL), "2500", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('^RAM 3500', train$NEW_MODEL), "3500", train$NEW_MODEL)
+```
+
+These cars werent part of the ignore but still need special treatment
+```{r}
+#this code works the same as the code above
+train$NEW_MODEL <- ifelse(grepl('BMW', train$MAKE) & grepl('3', train$NEW_MODEL), "3 Series", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('BMW', train$MAKE) & grepl('5', train$NEW_MODEL), "5 Series", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('BMW', train$MAKE) & grepl('7', train$NEW_MODEL), "7 Series", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('^S10', train$NEW_MODEL) & grepl('S10 BLAZER', train$MODEL), "S10 BLAZER",train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('MERCEDES-BENZ', train$MAKE) & grepl('^C', train$NEW_MODEL), "C Class", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('MERCEDES-BENZ', train$MAKE) & grepl('^E', train$NEW_MODEL), "E Class", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('MERCEDES-BENZ', train$MAKE) & grepl('^S', train$NEW_MODEL), "S Class", train$NEW_MODEL)
+train$NEW_MODEL <- ifelse(grepl('MERCEDES-BENZ', train$MAKE) & grepl('^M', train$NEW_MODEL), "M Class", train$NEW_MODEL)
+```
+
+This is more helper code to check how many different models we need while still retaining a good portion of the train
+```{r}
+#add the tabyl train frame to a new train frame in descending order 
+#checker_train_frame <- tabyl(train$NEW_MODEL) %>% arrange(desc(n))
+#choose the amount you want to subset to check the total percetange that cutoff sums too 
+#checker_train_frame <- checker_train_frame[c(1:300),]
+#sum that cut off percent to see what pecentage was gotten
+#sum(checker_train_frame$percent)
+```
+
+# Make
+
+```{r}
+# Grouping key words into appropriate MAKE's using the or pipe
+equipment_matches <- "WORKHORSE|UTILITY|SNOW PRO|PARK|MOTOR|MOBILE|HOME|LOAD|16 FT|horse|trailer|ALJO|BAJA|big|tex|bobcat|BTMT|CARGO|CARRY|EZ|EZ-PULL|FLAGSTAFF|FLAT|BED|TAILER|TRAILOR"
+leisure_matches <- "FLEETWOOD|FOREST|WINNS|Freightliner|GOLF|HAULING|HOME|JAYCO|JOHN|KARAV|KEYSTONE|MASTER|CRAFT|OPEN|POLARIS|RAMPAGE|RANGER|ROAD|ROCKWOOD|SHASTA|SHORE|SKEETER|SPRINGDALE|TITAN|TRAILS|TRAVEL|TRL|TRLR|WATERCRAFT|WEEKENDER|WINNEBAGO|boat|camper|RV|coachman|coleman|DUTCHMEN|VISION"
+alfa_Romeo_matches <- "alfa"
+acura_matches <- "ACURA"
+high_end_matches <- "	ASTON|MARTIN|AUSTIN|BACCIO|BEAR|BENT| BUGATTI|CARD|CORVAIR|COUGAR|CRONK|DELOREAN|FERRARI|Brokers|Real|Jag|JAVOLIN|LOTUS|MASERATI|MG|MORGAN|PEUGEOT|ROAD RUNNER|ROLLING THUNDER|ROLLS-ROYCE|Shelby|Triumph"
+motorcycle_matches <- "ASVE|buell|burgman|DONFANG|EVERGREEN|HARLEY|KAWASAKI|MOTOGUZZI|Suzuki|VESPA|VIKING|YAMAHA"
+audi_matches <- "audi"
+Buick_matches <- "BUICK"
+BMW_matches <- "BMW"
+cadillac_matches <- "cadillac"
+chevrolet_matches <- "CHEV"
+chrys_matches <- "Chrys"
+dodge_matches <- "dodge"
+fiat_matches <- "fiat"
+ford_matches <- "ford"
+hyundai_matches <- "GENESIS|Hyundai"
+gmc_matches <- "GMC"
+honda_matches <- "Honda"
+hummer_matches <- "HUMMER|AM_general"
+infiniti_matches <- "INFINITI"
+isuzu_matches <- "Isuzu|Izuzu"
+jeep_matches <- "Jeep"
+kia_matches <- "Kia"
+rover_matches <- "land|range|rover"
+lexus_matches <- "Lexus"
+lincoln_matches <- "Lincoln"
+mazda_matches <- "Mazda"
+mercedes_matches <- "mercedes"
+mercury_matches <- "Mercury"
+mini_matches <- "Mini"
+mitsu_matches <- "Mitsubishi"
+Nissan_matches <- "Nissan"
+oldsmobile_matches <- "Oldsmobile"
+plymouth_matches <- "Plymouth"
+pontiac_matches <- "pontiac"
+porsche_matches <- "porsche"
+ram_matches <- "Ram"
+saab_matches <- "	SAAB"
+saturn_matches <- "Saturn"
+scion_matches <- "Scion"
+smart_matches <- "SMART"
+subaru_matches <- "Subaru"
+tesla_matches <- "TESLA"
+toyota_matches <- "toyota"
+volkswagen_matches <- "Volkswagen"
+volvo_matches <- "Volvo"
+other_matches <- "C&M|CA|CANAM|CM|CT|CUSTOM|DaeWOO|DeSoto|DORSEY|EAGLE|ENCLOSED|FORCE|GEM|GENUINE|GEO|HALLMARK|HAND|HD|INDIAN|INTERNATIONAL|JACO|JAY|KZ|LOOSE|MAGNUM|MERKUR|MOBILITY|VENTURES|NITRO|NO|OTHER|PIAG|PRIME|QUAT|RINGO|ROYAL|SEBRING|SGAC|SPRINTER|STOCK|CORVAIR|Studebaker|TAHOE|TAO|THE|TIFFIN|TIOGA|UNKNOWN|VOID THIS ORD|VPG|CHANGZHOU|SUZ" 
+```
+
+This code replaces the matches. It takes a while to run 15 minutes
+```{r}
+#replace the data using a mutate and a casewhen to create MAKE_NEW containing the appropriately grouped makes
+train <- train %>%
+  mutate(
+    MAKE_NEW = case_when(
+      str_detect(MAKE, regex(equipment_matches, ignore_case = TRUE)) ~ "EQUIPMENT",
+      str_detect(MAKE, regex(leisure_matches, ignore_case = TRUE)) ~ "LEISURE",
+      str_detect(MAKE, regex(alfa_Romeo_matches, ignore_case = TRUE)) ~ "ALFA_ROMEO",
+      str_detect(MAKE, regex(acura_matches, ignore_case = TRUE)) ~ 'ACURA',
+      str_detect(MAKE, regex(high_end_matches, ignore_case = TRUE)) ~ 'HIGH_END',
+      str_detect(MAKE, regex(motorcycle_matches, ignore_case = TRUE)) ~ 'MOTORCYCLE',
+      str_detect(MAKE, regex(audi_matches, ignore_case = TRUE)) ~ 'AUDI',
+      str_detect(MAKE, regex(Buick_matches, ignore_case = TRUE)) ~ 'BUICK',
+      str_detect(MAKE, regex(BMW_matches, ignore_case = TRUE)) ~ 'BMW',
+      str_detect(MAKE, regex(cadillac_matches, ignore_case = TRUE)) ~ "CADILLAC",
+      str_detect(MAKE, regex(chevrolet_matches, ignore_case = TRUE)) ~ 'CHEVROLET',
+      str_detect(MAKE, regex(chrys_matches, ignore_case = TRUE)) ~ 'CHRYSLER',
+      str_detect(MAKE, regex(dodge_matches, ignore_case = TRUE)) ~ "DODGE",
+      str_detect(MAKE, regex(fiat_matches, ignore_case = TRUE)) ~ 'FIAT',
+      str_detect(MAKE, regex(ford_matches, ignore_case = TRUE)) ~ 'FORD',
+      str_detect(MAKE, regex(hyundai_matches, ignore_case = TRUE)) ~ 'HYUNDAI',
+      str_detect(MAKE, regex(gmc_matches, ignore_case = TRUE)) ~ 'GMC',
+      str_detect(MAKE, regex(honda_matches, ignore_case = TRUE)) ~ 'HONDA',
+      str_detect(MAKE, regex(hummer_matches, ignore_case = TRUE)) ~ 'HUMMER',
+      str_detect(MAKE, regex(infiniti_matches, ignore_case = TRUE)) ~ 'INFINITI',
+      str_detect(MAKE, regex(isuzu_matches, ignore_case = TRUE)) ~ 'ISUZU',
+      str_detect(MAKE, regex(jeep_matches, ignore_case = TRUE)) ~ 'JEEP',
+      str_detect(MAKE, regex(kia_matches, ignore_case = TRUE)) ~ 'KIA',
+      str_detect(MAKE, regex(rover_matches, ignore_case = TRUE)) ~ 'ROVER',
+      str_detect(MAKE, regex(lexus_matches, ignore_case = TRUE)) ~ 'LEXUS',
+      str_detect(MAKE, regex(lincoln_matches, ignore_case = TRUE)) ~ 'LINCOLN',
+      str_detect(MAKE, regex(mazda_matches, ignore_case = TRUE)) ~ 'MAZADA',
+      str_detect(MAKE, regex(mercedes_matches, ignore_case = TRUE)) ~ 'MERCEDES',
+      str_detect(MAKE, regex(mercury_matches, ignore_case = TRUE)) ~ 'MERCURY',
+      str_detect(MAKE, regex(mini_matches, ignore_case = TRUE)) ~ 'MINI',
+      str_detect(MAKE, regex(mitsu_matches, ignore_case = TRUE)) ~ 'MITSUBISHI',
+      str_detect(MAKE, regex(Nissan_matches, ignore_case = TRUE)) ~ 'NISSAN',
+      str_detect(MAKE, regex(oldsmobile_matches, ignore_case = TRUE)) ~ 'OLDSMOBILE',
+      str_detect(MAKE, regex(plymouth_matches, ignore_case = TRUE)) ~ 'PLYMOUTH',
+      str_detect(MAKE, regex(pontiac_matches, ignore_case = TRUE)) ~ 'PONTIAC',
+      str_detect(MAKE, regex(porsche_matches, ignore_case = TRUE)) ~ 'PORSCHE',
+      str_detect(MAKE, regex(ram_matches, ignore_case = TRUE)) ~ 'RAM',
+      str_detect(MAKE, regex(saab_matches, ignore_case = TRUE)) ~ 'SAAB',
+      str_detect(MAKE, regex(saturn_matches, ignore_case = TRUE)) ~ 'SATURN',
+      str_detect(MAKE, regex(scion_matches, ignore_case = TRUE)) ~ 'SCION',
+      str_detect(MAKE, regex(smart_matches, ignore_case = TRUE)) ~ 'SMART',
+      str_detect(MAKE, regex(subaru_matches, ignore_case = TRUE)) ~ 'SUBARU',
+      str_detect(MAKE, regex(tesla_matches, ignore_case = TRUE)) ~ 'TESLA',
+      str_detect(MAKE, regex(toyota_matches, ignore_case = TRUE)) ~ 'TOYOTA',
+      str_detect(MAKE, regex(volkswagen_matches, ignore_case = TRUE)) ~ 'VOLKSWAGEN',
+      str_detect(MAKE, regex(volvo_matches, ignore_case = TRUE)) ~ 'VOLVO',
+      str_detect(MAKE, regex(other_matches, ignore_case = TRUE)) ~ 'OTHER',
+      TRUE ~ MAKE
+    )
+  )
+```
+
+# Product Type
+
+```{r}
+feature_DESC <- vroom("feature_DESC.csv") %>% select(PROD_GROUP_DESC, CATEGORY_DESC, SEGMENT_DESC, CLASS_DESC, feature_engineering)
+train <- train %>%
+     left_join(feature_DESC, by = c( "PROD_GROUP_DESC", "CATEGORY_DESC", "SEGMENT_DESC", "CLASS_DESC"))
+
+train <- rename(train, product_type = feature_engineering)
+```
+
+
+# Aggregation and Feature Engineering
+
+```{r}
+#train
+train <- train %>% group_by(VEHICLE_ID) %>% mutate(total_units = sum(UNITS), 
+                                          total_sales = sum(SALES),
+                                          count_discount = sum(str_count(DISCOUNT_FLAG, 'Y')),
+                                          most_recent_visit = last(na.omit(DATE)),
+                                          make = last(na.omit(MAKE_NEW)),
+                                          model = last(na.omit(NEW_MODEL)),
+                                          model_year = last(na.omit(MODEL_YEAR)),
+                                          cross_section = last(na.omit(CROSS_SECTION)),
+                                          aspect_ratio = last(na.omit(ASPECT_RATIO)),
+                                          rim_size = last(na.omit(RIM_SIZE)),
+                                          state = last(na.omit(STATE_CODE)),
+                                          zip_code = last(na.omit(ZIP_CODE)),
+                                          car_age = 2019 - model_year,
+                                          num_visits = paste0(TRAN_ID, DATE) %>% n_distinct()) %>% 
+  ungroup() %>% group_by(VEHICLE_ID, TRAN_ID, DATE) %>% mutate(
+                                                  avg_sales = sum(total_sales)/sum(num_visits)
+                                                                                   ) %>% ungroup()
+
+```
+
+
+```{r}
+# number of service ticket items per visit
+train <- train %>% 
+  group_by(VEHICLE_ID, DATE, TRAN_ID) %>%
+  mutate(number_of_tickets_per_visit = n()) %>%
+  ungroup()
+
+# average number of tickets items per visit and total tickets
+train <- train %>% 
+  group_by(VEHICLE_ID) %>%
+  mutate(total_tickets = n(),
+         mean_num_ticks_per_visit = mean(number_of_tickets_per_visit)) %>% ungroup()
+
+```
+
+Gives the number of cars per owner
+```{r}
+#counts to find the unique combo b/c if not they get counted n times due to multiple transactions
+car_num_ind <- train %>% select(INDIV_ID,VEHICLE_ID) %>% unique() %>% group_by(INDIV_ID) %>% count()
+#rename and drop the n column to make it cleaner
+car_num_ind$car_num_ind <- car_num_ind$n
+car_num_ind<- car_num_ind %>% select(-n)
+```
+
+Join the data and cars_owned
+```{r}
+#joins the data together
+train <- left_join(train,car_num_ind,by = "INDIV_ID") 
+```
+
+Number of tires bought compared to other cars owned
+```{r}
+#performs the necessary math to get the columns
+num_tires_bought <- train %>% filter(product_type == 'tire') %>%  group_by(VEHICLE_ID) %>% summarise(num_tires_bought = sum(UNITS))
+
+train <- train %>% left_join(num_tires_bought, by = c('VEHICLE_ID'))
+train$num_tires_bought <- ifelse(is.na(train$num_tires_bought), 0, train$num_tires_bought)
+train$tire_freq_perc <- train$num_tires_bought/train$car_num_ind
+```
+
+```{r}
+tire_visits <- train %>% group_by(VEHICLE_ID, TRAN_ID, DATE) %>%  
+  filter(product_type == 'tire' & UNITS > 0) %>% unique() %>% ungroup() %>% 
+  group_by(VEHICLE_ID) %>% summarise(tire_visit = n())
+
+train <- train %>% left_join(tire_visits, by = c('VEHICLE_ID'))
+
+train$tire_visit <- ifelse(is.na(train$tire_visit), 0, train$tire_visit)
+train$tire_freq <- train$tire_visit/train$num_visits
+```
+
+```{r}
+tires_last_bought <- train %>% group_by(VEHICLE_ID, TRAN_ID) %>%  
+  filter(PROD_GROUP_DESC == "Tires" & UNITS > 0) %>% ungroup()
+```
+
+```{r}
+lastbuy <- tires_last_bought %>% group_by(VEHICLE_ID) %>% slice_max(DATE) %>% select(VEHICLE_ID, DATE)
+lastbuy <- rename(lastbuy, lastbuy = DATE) 
+lastbuy <- lastbuy %>% unique()
+train <- left_join(train,lastbuy,by = "VEHICLE_ID")
+train$lastbuy <- as_date(ifelse(is.na(train$lastbuy),
+                                as_date("2015/03/31"),train$lastbuy))
+train$time_since_last_tire <- as_date("2017/11/01") - train$lastbuy
+```
+
+```{r}
+train$time_since_last_visit <- as_date("2017/11/01") - train$most_recent_visit
+```
+
+```{r}
+prod_visit <- train %>% select(TRAN_ID, DATE, product_type, num_visits) %>% unique() %>% group_by(VEHICLE_ID,product_type) %>% count() 
+y <- prod_visit %>% pivot_wider(names_from = product_type, values_from = n)
+y[is.na(y)] <- 0
+t <- data.frame(t)
+t <- data.frame(t$VEHICLE_ID,t[,2:14] / t[,15])
+train <- train %>% left_join(t, by = c('VEHICLE_ID' = 't.VEHICLE_ID'))
+```
+
+```{r}
+x <- train %>% filter(product_type == "tire") %>% group_by(VEHICLE_ID) %>% slice_max(DATE) %>% summarise(num_last_tires_bought = sum(UNITS))
+train <- left_join(train,x,by = "VEHICLE_ID")
+```
+
+```{r}
+x <- train %>% filter(product_type == "tire") %>% group_by(VEHICLE_ID) %>% slice_max(DATE) %>% summarise(sales_last_tire_bought = sum(SALES))
+train <- left_join(train,x,by = "VEHICLE_ID")
+```
+
+```{r}
+x <- train %>% select(-DATE, -SALES, -SUB_MODEL, -CATEGORY_DESC, -DISCOUNT_FLAG, -RIM_SIZE, -INDIV_ID, -MAKE, -MODEL_YEAR, -SEGMENT_DESC, -CROSS_SECTION, -STATE_CODE, -TRAN_ID, -UNITS, -MODEL, -PROD_GROUP_DESC, -CLASS_DESC, -ASPECT_RATIO, -ZIP_CODE, -NEW_MODEL, -MAKE_NEW, -product_type, -number_of_tickets_per_visit, -avg_sales, -lastbuy, -most_recent_visit, -model_year) 
+
+x <- x %>% unique()
+x_2 <- x %>% group_by(VEHICLE_ID) %>% summarise(count = n()) %>% filter(count == 1)
+x_3 <- x_2 %>% inner_join(x, by = c('VEHICLE_ID')) %>% select(-count)
+
+# y <- x %>% group_by(VEHICLE_ID) %>% summarise(t = sum(tires_bought)) %>% 
+#   mutate(y = ifelse(t > 0, 1, 0)) %>% select(-t) %>% ungroup()
+# x_2 <- y %>% left_join(x, by = c('VEHICLE_ID'))
+# x_2 <- x_2 %>% select(-tires_bought) %>% unique()
+# x_2$avg_sales <- as.character(round(x_2$avg_sales,2))
+# x_2 <- x_2 %>% ungroup() %>% unique(x_2$VEHICLE_ID)
+
+```
+
+```{r message=FALSE, warning=FALSE}
+#impute the data
+#tires_info <- train %>% select(make,model,aspect_ratio, cross_section,rim_size)
+tempData <- mice(train,m=5,maxit=50,meth='pmm',seed=500)
+train <-complete(tempData)
+```
+
+```{r}
+write.csv(x_3, 'train_model2.csv', row.names = FALSE)
+```
+

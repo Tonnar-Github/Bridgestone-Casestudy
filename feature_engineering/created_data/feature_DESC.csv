@@ -1,0 +1,165 @@
+PROD_GROUP_DESC,CATEGORY_DESC,SEGMENT_DESC,CLASS_DESC,n,feature_engineering
+Other,Other,Consumable Goods,Other Consumables,327,other
+Other,Other,DD Items,DD Items,6,other
+Other,Other,Employee Tire Discount,Employee Tire Discount,273,discount
+Other,Other,Employee Tire Discount,Teammate Tire Discount,5252,discount
+Other,Other,Equipment,Other Equipment,43,other
+Other,Other,Expenses,Other Expenses,18,other
+Other,Other,Other,Other,105,other
+Other,Other,Supplies,Other Supplies,87,other
+Other,Other,Teammate Tire Discount,Teammate Best Tire Savings Discount,316,discount
+Other,Service Recovery,Service Recovery,Service Recovery,1635,other
+Other,Wheels,Wheels,Custom Wheels,787,other
+Other,Wheels,Wheels,Steel Wheels,677,other
+Other,Wheels,Wheels,Wheel Accessories,3019,other
+Services,Brake Systems,Brake Service,Additional Brake Labor,2741,brake
+Services,Brake Systems,Brake Service,Basic Brake Job Labor,122789,brake
+Services,Brake Systems,Brake Service,Brake Calipers,14921,brake
+Services,Brake Systems,Brake Service,Brake Hardware,4887,brake
+Services,Brake Systems,Brake Service,Brake Inspect.,47134,brake
+Services,Brake Systems,Brake Service,Brake Maint. Package,580,brake
+Services,Brake Systems,Brake Service,Brake Pads,112263,brake
+Services,Brake Systems,Brake Service,Brake Shoes,6988,brake
+Services,Brake Systems,Brake Service,Brake System Fluid Services,43983,brake
+Services,Brake Systems,Brake Service,Drum/Rotor Replacement Service,69525,brake
+Services,Brake Systems,Brake Service,Lifetime Brake Job Labor,5726,brake
+Services,Brake Systems,Brake Service,Master Cylinder Service,1273,brake
+Services,Brake Systems,Brake Service,Misc. Brake Service,33102,brake
+Services,Brake Systems,Brake Service,Wheel Bearing Repack,16483,brake
+Services,Brake Systems,Brake Service,Wheel Cylinders,4562,brake
+Services,Brake Systems,Discount Brake Service,Discount Brake Service,62550,discount
+Services,Discount All Services,Discount All Services,Discount All Services,29237,discount
+Services,Engine Systems,Diagnostic Testing,Emission Testing,671,engine
+Services,Engine Systems,Diagnostic Testing,Engine Sensors,19423,engine
+Services,Engine Systems,Diagnostic Testing,No Start Diagnosis,70,engine
+Services,Engine Systems,Diagnostic Testing,On Board Comp. Diag.,3740,engine
+Services,Engine Systems,Diagnostic Testing,Total Engine Analysis,32242,engine
+Services,Engine Systems,Discount Engine Services,Discount Engine Services,60284,engine
+Services,Engine Systems,Engine Maintenance/Repair,Air Filter,66559,engine
+Services,Engine Systems,Engine Maintenance/Repair,Coil Pack,3237,engine
+Services,Engine Systems,Engine Maintenance/Repair,Dist. Cap,302,engine
+Services,Engine Systems,Engine Maintenance/Repair,Dist. Rotor,297,engine
+Services,Engine Systems,Engine Maintenance/Repair,Engine Component Services,7023,engine
+Services,Engine Systems,Engine Maintenance/Repair,Fuel Filters,2772,engine
+Services,Engine Systems,Engine Maintenance/Repair,Fuel Pumps,2993,engine
+Services,Engine Systems,Engine Maintenance/Repair,Fuel System Tune-Up,40814,engine
+Services,Engine Systems,Engine Maintenance/Repair,Ignition Modules,122,engine
+Services,Engine Systems,Engine Maintenance/Repair,Ignition Wires,4088,engine
+Services,Engine Systems,Engine Maintenance/Repair,Maint. Tune Up/Spark Plug Replacement,27386,engine
+Services,Engine Systems,Engine Maintenance/Repair,Misc. Engine Fuel/ Emissions Services,34768,engine
+Services,Engine Systems,Engine Maintenance/Repair,Other Filters,39756,engine
+Services,Engine Systems,Engine Maintenance/Repair,PCV Valves,1000,engine
+Services,Engine Systems,Engine Maintenance/Repair,Timing Belts,2927,engine
+Services,Engine Systems,Lubrication Services,Misc Lube Service,2947,engine
+Services,Engine Systems,Lubrication Services,Oil Change,3105601,oil
+Services,Engine Systems,Lubrication Services,Oil Leak Detection,1931,oil
+Services,Heating/Cooling Systems,Air Conditioning Services,A/C Inspection,28037,heating/cooling
+Services,Heating/Cooling Systems,Air Conditioning Services,A/C Retrofit,4,heating/cooling
+Services,Heating/Cooling Systems,Air Conditioning Services,A/C System Leak Detection,9503,heating/cooling
+Services,Heating/Cooling Systems,Air Conditioning Services,Individual A/C Services,17455,heating/cooling
+Services,Heating/Cooling Systems,Air Conditioning Services,R-12 A/C Service,10,heating/cooling
+Services,Heating/Cooling Systems,Air Conditioning Services,R-1234YF A/C Services,2,heating/cooling
+Services,Heating/Cooling Systems,Air Conditioning Services,R134A A/C Services,18774,heating/cooling
+Services,Heating/Cooling Systems,Discount Heating/Cooling,Discount Heating/Cooling,44184,discount
+Services,Heating/Cooling Systems,Heating/Cooling System Service,Bypass Hose Replacement,1233,heating/cooling
+Services,Heating/Cooling Systems,Heating/Cooling System Service,Complete Radiator System Flush,67367,heating/cooling
+Services,Heating/Cooling Systems,Heating/Cooling System Service,Cooling System Leak Detection,72,heating/cooling
+Services,Heating/Cooling Systems,Heating/Cooling System Service,Misc. Radiator/ Cooling,17950,heating/cooling
+Services,Heating/Cooling Systems,Heating/Cooling System Service,Pressure Test Cooling System,6625,heating/cooling
+Services,Heating/Cooling Systems,Heating/Cooling System Service,Radiator Caps / Thermostats,7561,heating/cooling
+Services,Heating/Cooling Systems,Heating/Cooling System Service,Radiator Drain & Fill,91,heating/cooling
+Services,Heating/Cooling Systems,Heating/Cooling System Service,Radiator/ Heater Hose Replacement,4939,heating/cooling
+Services,Heating/Cooling Systems,Heating/Cooling System Service,Serpentine Belt Replacement,29046,heating/cooling
+Services,Heating/Cooling Systems,Heating/Cooling System Service,Standard V Belt Replacement,7067,heating/cooling
+Services,Heating/Cooling Systems,Heating/Cooling System Service,Water Pumps,4843,heating/cooling
+Services,Miscellaneous Services,Discount Misc Services,Discount Misc Services,151690,discount
+Services,Miscellaneous Services,Employee Discounts,Employee Discounts Services,14413,discount
+Services,Miscellaneous Services,Exhaust Services,Exhaust System,7285,other
+Services,Miscellaneous Services,Inspection Services,Complete Vehicle Inspection,217100,inspection
+Services,Miscellaneous Services,Inspection Services,Courtesy Check,636695,inspection
+Services,Miscellaneous Services,Inspection Services,Other Inspections,127593,inspection
+Services,Miscellaneous Services,Lighting,Headlamps,21694,other
+Services,Miscellaneous Services,Lighting,Mini Lamps,45819,other
+Services,Miscellaneous Services,Lighting,Misc. Lighting,627,other
+Services,Miscellaneous Services,Non-System Services,Other Non-System Services,65020,other
+Services,Miscellaneous Services,Non-System Services,Pre-Paid Services,6,other
+Services,Miscellaneous Services,Non-System Services,Towing,1940,other
+Services,Miscellaneous Services,Non-System Services,Vehicle Reconditioning,58,other
+Services,Miscellaneous Services,Wiper Blades,Misc. Wiper Blade Service,1023,other
+Services,Miscellaneous Services,Wiper Blades,Wiper Blade Service,101986,other
+Services,Other Services,Other Services,Other Services,1,other
+Services,Starting/Charging Systems,Discount Starting/Charging Service,Discount Starting/Charging Service,14703,discount
+Services,Starting/Charging Systems,Starting/Charging Systems,Alternator Services,16063,starting/charging
+Services,Starting/Charging Systems,Starting/Charging Systems,Batteries & Battery Installation,179850,starting/charging
+Services,Starting/Charging Systems,Starting/Charging Systems,Battery Service & Accessories,14673,starting/charging
+Services,Starting/Charging Systems,Starting/Charging Systems,Electrical System Diagnosis,12113,starting/charging
+Services,Starting/Charging Systems,Starting/Charging Systems,Electrical System Services,128,starting/charging
+Services,Starting/Charging Systems,Starting/Charging Systems,Starter Services,10846,starting/charging
+Services,Steering/Suspension/Drivetrain,Alignments,Alignment Check,39255,alignment
+Services,Steering/Suspension/Drivetrain,Alignments,Alignment Service,105459,alignment
+Services,Steering/Suspension/Drivetrain,Alignments,Discount Alignment Service,122,alignment
+Services,Steering/Suspension/Drivetrain,Alignments,Four Wheel Alignment,19,alignment
+Services,Steering/Suspension/Drivetrain,Alignments,Lifetime Alignment,71073,alignment
+Services,Steering/Suspension/Drivetrain,Alignments,Lifetime Check,91559,alignment
+Services,Steering/Suspension/Drivetrain,Alignments,SAS Reprogramming,637,alignment
+Services,Steering/Suspension/Drivetrain,Alignments,Thrust Alignment,10,alignment
+Services,Steering/Suspension/Drivetrain,Discount Steering & Susp,Discount Steering & Susp,48154,discount
+Services,Steering/Suspension/Drivetrain,Drive Train,CV Boot,93,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Drive Train,CV Joints,613,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Drive Train,Engine/Transmission Mounts,3988,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Drive Train,Half Shaft,5873,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Drive Train,Other Trans. Service,3375,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Drive Train,Trans/Transaxle Service,18162,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Drive Train,U-Joint,1037,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Shocks,Shocks,9614,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Shocks & Struts,Loaded Strut Assemblies,132,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Shocks & Struts,Misc. Shock/Strut Service,22,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Struts,Gas Strut Cartridges,3,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Struts,Gas Struts,18365,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Suspension and Steering,Alignment Parts,1292,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Suspension and Steering,Ball Joints,9011,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Suspension and Steering,Bushings,2229,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Suspension and Steering,Center Links,78,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Suspension and Steering,Control Arms,205,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Suspension and Steering,Idler/Pitman Arms,1209,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Suspension and Steering,Misc. Susp. Service,28265,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Suspension and Steering,Rack &Pinion Units,1829,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Suspension and Steering,Strut Mount,874,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Suspension and Steering,Sway Bar Link Kits,3287,steering/suspension/drivetrain
+Services,Steering/Suspension/Drivetrain,Suspension and Steering,Tie Rod End / Sleeves,13774,steering/suspension/drivetrain
+Services,Tire Services,Farm/Truck Services,Farm/Truck Services,21,tire_serv
+Services,Tire Services,Tire Services,Balance,385688,tire_serv
+Services,Tire Services,Tire Services,Discount Tire Services,109815,discount
+Services,Tire Services,Tire Services,Misc. Tire Service,146391,tire_serv
+Services,Tire Services,Tire Services,Tire Mounting,198720,tire_serv
+Services,Tire Services,Tire Services,Tire Pressure Monitoring Systems,193211,tire_serv
+Services,Tire Services,Tire Services,Tire Rotation,208056,tire_serv
+Services,Tire Services,Tire Services,Valves,70676,tire_serv
+Tires,Light Truck Tires,Commercial Tires,All Terrain Tires,1390,tire
+Tires,Light Truck Tires,Commercial Tires,Highway Tires,3202,tire
+Tires,Light Truck Tires,Commercial/Recreational,All-Terrain,16,tire
+Tires,Light Truck Tires,Commercial/Recreational,Maximum Traction,6,tire
+Tires,Light Truck Tires,Recreational Tires,All Terrain Tires,3135,tire
+Tires,Light Truck Tires,Recreational Tires,Highway Tires,1912,tire
+Tires,Light Truck Tires,Recreational Tires,Max Traction Tires,696,tire
+Tires,Light Truck Tires,Snow Tires-LT,Snow Tires - All Terrain LT,14,tire
+Tires,Light Truck Tires,Snow Tires-LT,Snow Tires - Commercial LT,40,tire
+Tires,Others,Medium Truck Tires,Radial Tires,1,tire
+Tires,Others,Miscellaneous Tire Related Items,Misc/Discounts/Non-Inventoreable,24034,tire_serv
+Tires,Others,Miscellaneous Tire Related Items,Other,29,tire_serv
+Tires,Others,Tubes,Tubes,2,tire_serv
+Tires,Passenger Tires,Other Passenger Tires,Other Passenger Tires,8150,tire
+Tires,Passenger Tires,P Metric Light Truck Tires,All Terrain Tires,9187,tire
+Tires,Passenger Tires,P Metric Light Truck Tires,Highway Tires,34584,tire
+Tires,Passenger Tires,P-Metric CUV/SUV,CUV/SUV All-Terrain,4,tire
+Tires,Passenger Tires,P-Metric CUV/SUV,CUV/SUV Highway All-Season,42541,tire
+Tires,Passenger Tires,Performance Tires,Performance All-Season,36387,tire
+Tires,Passenger Tires,Performance Tires,S/T Performance Tires,813,tire
+Tires,Passenger Tires,Performance Tires,Touring H/V/Z Tires,25925,tire
+Tires,Passenger Tires,Performance Tires,Ultra High Performance All Season,30667,tire
+Tires,Passenger Tires,Performance Tires,Ultra High Performance Summer,9407,tire
+Tires,Passenger Tires,Snow Tires-PS,Snow Tires,2314,tire
+Tires,Passenger Tires,Touring,Car & Minivan All-Season,54493,tire
+Tires,Passenger Tires,Touring,Economy Tires,27045,tire
+Tires,Passenger Tires,Touring,Mass Market Tires,20746,tire
+Tires,Road Hazard,Road Hazard,Road Hazard,175790,tire_serv

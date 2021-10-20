@@ -1,0 +1,317 @@
+---
+title: "Feature Engineering"
+output: html_notebook
+---
+
+```{r, message = FALSE, libraries}
+library(vroom)
+library(dplyr)
+library(janitor)
+library(stringr)
+library(lubridate)
+library(mice)
+```
+
+```{r, helper code}
+feature_DESC <- vroom("feature_DESC.csv") %>% select(PROD_GROUP_DESC, CATEGORY_DESC, SEGMENT_DESC, CLASS_DESC, feature_engineering)
+
+#for make
+#^ is regex for starts with and the | is the or operator telling us what models to ignore
+cars_to_ignore = "^GRAND|PT CRUISER|^TOWN|^RAM"
+
+#for model
+# Grouping key words into appropriate MAKE's using the or pipe
+equipment_matches <- "WORKHORSE|UTILITY|SNOW PRO|PARK|MOTOR|MOBILE|HOME|LOAD|16 FT|horse|trailer|ALJO|BAJA|big|tex|bobcat|BTMT|CARGO|CARRY|EZ|EZ-PULL|FLAGSTAFF|FLAT|BED|TAILER|TRAILOR"
+leisure_matches <- "FLEETWOOD|FOREST|WINNS|Freightliner|GOLF|HAULING|HOME|JAYCO|JOHN|KARAV|KEYSTONE|MASTER|CRAFT|OPEN|POLARIS|RAMPAGE|RANGER|ROAD|ROCKWOOD|SHASTA|SHORE|SKEETER|SPRINGDALE|TITAN|TRAILS|TRAVEL|TRL|TRLR|WATERCRAFT|WEEKENDER|WINNEBAGO|boat|camper|RV|coachman|coleman|DUTCHMEN|VISION"
+alfa_Romeo_matches <- "alfa"
+acura_matches <- "ACURA"
+high_end_matches <- "	ASTON|MARTIN|AUSTIN|BACCIO|BEAR|BENT| BUGATTI|CARD|CORVAIR|COUGAR|CRONK|DELOREAN|FERRARI|Brokers|Real|Jag|JAVOLIN|LOTUS|MASERATI|MG|MORGAN|PEUGEOT|ROAD RUNNER|ROLLING THUNDER|ROLLS-ROYCE|Shelby|Triumph"
+motorcycle_matches <- "ASVE|buell|burgman|DONFANG|EVERGREEN|HARLEY|KAWASAKI|MOTOGUZZI|Suzuki|VESPA|VIKING|YAMAHA"
+audi_matches <- "audi"
+Buick_matches <- "BUICK"
+BMW_matches <- "BMW"
+cadillac_matches <- "cadillac"
+chevrolet_matches <- "CHEV"
+chrys_matches <- "Chrys"
+dodge_matches <- "dodge"
+fiat_matches <- "fiat"
+ford_matches <- "ford"
+hyundai_matches <- "GENESIS|Hyundai"
+gmc_matches <- "GMC"
+honda_matches <- "Honda"
+hummer_matches <- "HUMMER|AM_general"
+infiniti_matches <- "INFINITI"
+isuzu_matches <- "Isuzu|Izuzu"
+jeep_matches <- "Jeep"
+kia_matches <- "Kia"
+rover_matches <- "land|range|rover"
+lexus_matches <- "Lexus"
+lincoln_matches <- "Lincoln"
+mazda_matches <- "Mazda"
+mercedes_matches <- "mercedes"
+mercury_matches <- "Mercury"
+mini_matches <- "Mini"
+mitsu_matches <- "Mitsubishi"
+Nissan_matches <- "Nissan"
+oldsmobile_matches <- "Oldsmobile"
+plymouth_matches <- "Plymouth"
+pontiac_matches <- "pontiac"
+porsche_matches <- "porsche"
+ram_matches <- "Ram"
+saab_matches <- "	SAAB"
+saturn_matches <- "Saturn"
+scion_matches <- "Scion"
+smart_matches <- "SMART"
+subaru_matches <- "Subaru"
+tesla_matches <- "TESLA"
+toyota_matches <- "toyota"
+volkswagen_matches <- "Volkswagen"
+volvo_matches <- "Volvo"
+other_matches <- "C&M|CA|CANAM|CM|CT|CUSTOM|DaeWOO|DeSoto|DORSEY|EAGLE|ENCLOSED|FORCE|GEM|GENUINE|GEO|HALLMARK|HAND|HD|INDIAN|INTERNATIONAL|JACO|JAY|KZ|LOOSE|MAGNUM|MERKUR|MOBILITY|VENTURES|NITRO|NO|OTHER|PIAG|PRIME|QUAT|RINGO|ROYAL|SEBRING|SGAC|SPRINTER|STOCK|CORVAIR|Studebaker|TAHOE|TAO|THE|TIFFIN|TIOGA|UNKNOWN|VOID THIS ORD|VPG|CHANGZHOU|SUZ" 
+
+#weather
+weather <-vroom("/data/p_dsi/bridgestone/teams/team1/WeatherEvents_Jan2016-Dec2020.csv",
+                col_types = c(ZipCode = 'c'))
+weather %>% group_by(Type) %>% count()
+weather <- weather %>% 
+  select(-c(EventId,       #Select the necessary columns
+            TimeZone,
+            AirportCode,   
+            LocationLat,
+            LocationLng,
+            County,
+            Severity)
+         ) %>% 
+  filter(Type == "Snow"|
+           Type == "Rain"|
+           Type == "Cold")
+weather <- weather %>%
+  mutate(                 
+    StartDate =  sub(" .*", 
+                     "", 
+                     weather$`StartTime(UTC)`),   #Remove the space to make finding the weather each day possible    
+    EndDate = sub(" .*", 
+                  "", 
+                  weather$`StartTime(UTC)`)
+    ) %>%
+  select(-c(`StartTime(UTC)`,`EndTime(UTC)`))
+weather$month <- format(as.Date(weather$StartDate), "%m") 
+weather %>% group_by(City,month) %>% count() %>% arrange(n)
+weather_overview <- weather %>%  
+  group_by(StartDate, EndDate, Type) %>%  #Get the unique days weather occurred
+  unique() %>% 
+  ungroup() %>%
+  group_by(ZipCode,Type) %>% 
+  count() %>%                             #Get a count
+  arrange(desc(n)) %>% 
+  ungroup() 
+weather_overview <-  weather_overview %>%
+  mutate(yearly_avg = round(n * 365 / 1826)) %>%    #Calculate the average the 1826 comes from the max - min dates
+  select(-n)
+weather_overview_wider <- pivot_wider(weather_overview, names_from = "Type", #create the pivot
+                                      values_from = "yearly_avg")
+```
+
+```{r, functions}
+create_model <- function(df){
+  df$MODEL <- toupper(df$MODEL)
+  df$MAKE <- toupper(df$MAKE)
+  
+  df <- df %>%
+  mutate(
+    NEW_MODEL = case_when(
+      str_detect(MODEL,regex(cars_to_ignore), negate = TRUE) ~ sub(" .*", "", df$MODEL),
+      str_detect(MODEL, regex(cars_to_ignore)) ~ df$MODEL))
+  #part two This checks for the special cases mentioned above and groups them correctly this way generally   done if there were similar car makes with the same name preventing stripping after the white space
+  df$NEW_MODEL <- ifelse(grepl('^PT', df$NEW_MODEL), "PT CRUISER", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('^GRAND CHEROKEE', df$NEW_MODEL), "GRAND CHEROKEE", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('^GRAND CARAVAN', df$NEW_MODEL), "GRAND CARAVAN", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('^TOWN & COUNTRY', df$NEW_MODEL), "TOWN & COUNTRY", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('^TOWN CAR', df$NEW_MODEL), "TOWN CAR", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('^RAM 1500', df$NEW_MODEL), "1500", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('^RAM 2500', df$NEW_MODEL), "2500", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('^RAM 3500', df$NEW_MODEL), "3500", df$NEW_MODEL)
+  
+  df$NEW_MODEL <- ifelse(grepl('BMW', df$MAKE) & grepl('3', df$NEW_MODEL), 
+                            "3 Series", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('BMW', df$MAKE) & grepl('5', df$NEW_MODEL), 
+                          "5 Series", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('BMW', df$MAKE) & grepl('7', df$NEW_MODEL), 
+                          "7 Series", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('^S10', df$NEW_MODEL) & grepl('S10 BLAZER', df$MODEL), 
+                          "S10 BLAZER",df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('MERCEDES-BENZ', df$MAKE) & grepl('^C', df$NEW_MODEL),
+                          "C Class", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('MERCEDES-BENZ', df$MAKE) & grepl('^E', df$NEW_MODEL), 
+                          "E Class", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('MERCEDES-BENZ', df$MAKE) & grepl('^S', df$NEW_MODEL), 
+                          "S Class", df$NEW_MODEL)
+  df$NEW_MODEL <- ifelse(grepl('MERCEDES-BENZ', df$MAKE) & grepl('^M', df$NEW_MODEL), 
+                          "M Class", df$NEW_MODEL)
+  return(df)
+}
+
+create_make <- function(df){
+  df <- df %>%
+  mutate(
+    MAKE_NEW = case_when(
+      str_detect(MAKE, regex(equipment_matches, ignore_case = TRUE)) ~ "EQUIPMENT",
+      str_detect(MAKE, regex(leisure_matches, ignore_case = TRUE)) ~ "LEISURE",
+      str_detect(MAKE, regex(alfa_Romeo_matches, ignore_case = TRUE)) ~ "ALFA_ROMEO",
+      str_detect(MAKE, regex(acura_matches, ignore_case = TRUE)) ~ 'ACURA',
+      str_detect(MAKE, regex(high_end_matches, ignore_case = TRUE)) ~ 'HIGH_END',
+      str_detect(MAKE, regex(motorcycle_matches, ignore_case = TRUE)) ~ 'MOTORCYCLE',
+      str_detect(MAKE, regex(audi_matches, ignore_case = TRUE)) ~ 'AUDI',
+      str_detect(MAKE, regex(Buick_matches, ignore_case = TRUE)) ~ 'BUICK',
+      str_detect(MAKE, regex(BMW_matches, ignore_case = TRUE)) ~ 'BMW',
+      str_detect(MAKE, regex(cadillac_matches, ignore_case = TRUE)) ~ "CADILLAC",
+      str_detect(MAKE, regex(chevrolet_matches, ignore_case = TRUE)) ~ 'CHEVROLET',
+      str_detect(MAKE, regex(chrys_matches, ignore_case = TRUE)) ~ 'CHRYSLER',
+      str_detect(MAKE, regex(dodge_matches, ignore_case = TRUE)) ~ "DODGE",
+      str_detect(MAKE, regex(fiat_matches, ignore_case = TRUE)) ~ 'FIAT',
+      str_detect(MAKE, regex(ford_matches, ignore_case = TRUE)) ~ 'FORD',
+      str_detect(MAKE, regex(hyundai_matches, ignore_case = TRUE)) ~ 'HYUNDAI',
+      str_detect(MAKE, regex(gmc_matches, ignore_case = TRUE)) ~ 'GMC',
+      str_detect(MAKE, regex(honda_matches, ignore_case = TRUE)) ~ 'HONDA',
+      str_detect(MAKE, regex(hummer_matches, ignore_case = TRUE)) ~ 'HUMMER',
+      str_detect(MAKE, regex(infiniti_matches, ignore_case = TRUE)) ~ 'INFINITI',
+      str_detect(MAKE, regex(isuzu_matches, ignore_case = TRUE)) ~ 'ISUZU',
+      str_detect(MAKE, regex(jeep_matches, ignore_case = TRUE)) ~ 'JEEP',
+      str_detect(MAKE, regex(kia_matches, ignore_case = TRUE)) ~ 'KIA',
+      str_detect(MAKE, regex(rover_matches, ignore_case = TRUE)) ~ 'ROVER',
+      str_detect(MAKE, regex(lexus_matches, ignore_case = TRUE)) ~ 'LEXUS',
+      str_detect(MAKE, regex(lincoln_matches, ignore_case = TRUE)) ~ 'LINCOLN',
+      str_detect(MAKE, regex(mazda_matches, ignore_case = TRUE)) ~ 'MAZADA',
+      str_detect(MAKE, regex(mercedes_matches, ignore_case = TRUE)) ~ 'MERCEDES',
+      str_detect(MAKE, regex(mercury_matches, ignore_case = TRUE)) ~ 'MERCURY',
+      str_detect(MAKE, regex(mini_matches, ignore_case = TRUE)) ~ 'MINI',
+      str_detect(MAKE, regex(mitsu_matches, ignore_case = TRUE)) ~ 'MITSUBISHI',
+      str_detect(MAKE, regex(Nissan_matches, ignore_case = TRUE)) ~ 'NISSAN',
+      str_detect(MAKE, regex(oldsmobile_matches, ignore_case = TRUE)) ~ 'OLDSMOBILE',
+      str_detect(MAKE, regex(plymouth_matches, ignore_case = TRUE)) ~ 'PLYMOUTH',
+      str_detect(MAKE, regex(pontiac_matches, ignore_case = TRUE)) ~ 'PONTIAC',
+      str_detect(MAKE, regex(porsche_matches, ignore_case = TRUE)) ~ 'PORSCHE',
+      str_detect(MAKE, regex(ram_matches, ignore_case = TRUE)) ~ 'RAM',
+      str_detect(MAKE, regex(saab_matches, ignore_case = TRUE)) ~ 'SAAB',
+      str_detect(MAKE, regex(saturn_matches, ignore_case = TRUE)) ~ 'SATURN',
+      str_detect(MAKE, regex(scion_matches, ignore_case = TRUE)) ~ 'SCION',
+      str_detect(MAKE, regex(smart_matches, ignore_case = TRUE)) ~ 'SMART',
+      str_detect(MAKE, regex(subaru_matches, ignore_case = TRUE)) ~ 'SUBARU',
+      str_detect(MAKE, regex(tesla_matches, ignore_case = TRUE)) ~ 'TESLA',
+      str_detect(MAKE, regex(toyota_matches, ignore_case = TRUE)) ~ 'TOYOTA',
+      str_detect(MAKE, regex(volkswagen_matches, ignore_case = TRUE)) ~ 'VOLKSWAGEN',
+      str_detect(MAKE, regex(volvo_matches, ignore_case = TRUE)) ~ 'VOLVO',
+      str_detect(MAKE, regex(other_matches, ignore_case = TRUE)) ~ 'OTHER',
+      TRUE ~ MAKE
+    )
+  )
+  return(df)
+}
+
+create_product_type <- function(df){
+  df <- df %>%
+     left_join(feature_DESC, by = c( "PROD_GROUP_DESC", "CATEGORY_DESC", "SEGMENT_DESC", "CLASS_DESC"))
+  df <- rename(df, product_type = feature_engineering)
+  return(df)
+}
+
+create_group_by_features <- function(df){
+  df <- df %>% group_by(VEHICLE_ID) %>% mutate(total_units = sum(UNITS), 
+                                            total_sales = sum(SALES),
+                                            count_discount = sum(str_count(DISCOUNT_FLAG, 'Y')),
+                                            most_recent_visit = last(na.omit(DATE)),
+                                            make = last(na.omit(MAKE_NEW)),
+                                            model = last(na.omit(NEW_MODEL)),
+                                            model_year = last(na.omit(MODEL_YEAR)),
+                                            cross_section = last(na.omit(CROSS_SECTION)),
+                                            aspect_ratio = last(na.omit(ASPECT_RATIO)),
+                                            rim_size = last(na.omit(RIM_SIZE)),
+                                            state = last(na.omit(STATE_CODE)),
+                                            zip_code = last(na.omit(ZIP_CODE)),
+                                            car_age = 2019 - model_year,
+                                            num_visits = paste0(TRAN_ID, DATE) %>% n_distinct(),
+                                            total_tickets = n()) %>% 
+    ungroup() %>% group_by(VEHICLE_ID, TRAN_ID, DATE) %>% mutate(
+                                                    avg_sales = sum(total_sales)/sum(num_visits),
+                                                    number_of_tickets_per_visit = n()
+                                                                                     ) %>% ungroup()
+  
+  df <- df %>% 
+    group_by(VEHICLE_ID) %>%
+    mutate(mean_num_ticks_per_visit = mean(number_of_tickets_per_visit)) %>% ungroup()
+  return(df  %>% select(-model_year))
+}
+
+create_owner_features <- function(df){
+  #counts to find the unique combo b/c if not they get counted n times due to multiple transactions
+  car_num_ind <- df %>% select(INDIV_ID,VEHICLE_ID) %>% unique() %>% group_by(INDIV_ID) %>% count()
+  #rename and drop the n column to make it cleaner
+  car_num_ind$car_num_ind <- car_num_ind$n
+  car_num_ind<- car_num_ind %>% select(-n)
+  df <- left_join(df,car_num_ind,by = "INDIV_ID") 
+  
+  #performs the necessary math to get the columns
+  num_tires_bought <- df %>% filter(product_type == 'tire') %>% 
+    group_by(VEHICLE_ID) %>% summarise(num_tires_bought = sum(UNITS))
+
+  df <- df %>% left_join(num_tires_bought, by = c('VEHICLE_ID'))
+  df$num_tires_bought <- ifelse(is.na(df$num_tires_bought), 0, df$num_tires_bought)
+  df$tire_freq_perc <- df$num_tires_bought/df$car_num_ind
+  return(df)
+}
+
+create_product_visit_features <- function(df){
+  df$time_since_last_visit <- as_date("2017/11/01") - df$most_recent_visit
+  
+  prod_visit <- df %>% select(VEHICLE_ID, TRAN_ID, DATE, product_type, num_visits) %>% unique() %>% 
+    group_by(VEHICLE_ID,product_type) %>% count() 
+  y <- prod_visit %>% pivot_wider(names_from = product_type, values_from = n)
+  y[is.na(y)] <- 0
+  visits <- df %>% select(VEHICLE_ID, num_visits) %>% unique()
+  y <- left_join(y, visits, by = c('VEHICLE_ID'))
+  y <- data.frame(y)
+  y <- data.frame(VEHICLE_ID = y$VEHICLE_ID,tire_visit = y$tire, y[,2:14] / y[,15]) %>% select(-NA.)
+  df <- df %>% left_join(y, by = c('VEHICLE_ID'))
+  
+  return(df)
+}
+
+create_tire_features <- function(df){
+  df$tire_freq <- df$tire_visit/df$num_visits
+
+  tires_last_bought <- df %>% group_by(VEHICLE_ID, TRAN_ID, DATE) %>%  
+  filter(PROD_GROUP_DESC == "Tires" & UNITS > 0) %>% ungroup()
+  
+  lastbuy <- tires_last_bought %>% group_by(VEHICLE_ID) %>% slice_max(DATE) %>% select(VEHICLE_ID, DATE)
+  lastbuy <- rename(lastbuy, lastbuy = DATE) 
+  lastbuy <- lastbuy %>% unique()
+  df <- left_join(df,lastbuy,by = "VEHICLE_ID")
+  df$lastbuy <- as_date(ifelse(is.na(df$lastbuy),
+                                as_date("2015/03/31"),df$lastbuy))
+  df$time_since_last_tire <- as_date("2017/11/01") - df$lastbuy
+  
+  y <- df %>% filter(product_type == "tire") %>% group_by(VEHICLE_ID) %>% slice_max(DATE) %>% 
+    summarise(num_last_tires_bought = sum(UNITS))
+  df <- left_join(df,y,by = "VEHICLE_ID")
+  df$num_last_tires_bought <- ifelse(is.na(df$num_last_tires_bought), 0 , df$num_last_tires_bought)
+  
+  y <- df %>% filter(product_type == "tire") %>% group_by(VEHICLE_ID) %>% slice_max(DATE) %>% 
+    summarise(sales_last_tire_bought = sum(SALES))
+  df <- left_join(df,y,by = "VEHICLE_ID")
+  df$sales_last_tire_bought <- ifelse(is.na(df$sales_last_tire_bought), 0 , df$sales_last_tire_bought)
+    
+  return(df %>% select(-lastbuy))
+}
+
+impute <- function(df){
+  tempData <- mice(df,m=5,maxit=50,meth='pmm',seed=500)
+  df <-complete(tempData)
+  return(df)
+}
+
+remove_variables <- function(df){
+  df <- df %>% select(-c(INDIV_ID, MAKE, MODEL_YEAR, SEGMENT_DESC, CROSS_SECTION, STATE_CODE, NEW_MODEL, TRAN_ID, UNITS, MODEL, PROD_GROUP_DESC, CLASS_DESC, ASPECT_RATIO, MAKE_NEW, DATE, SALES, SUB_MODEL, CATEGORY_DESC, DISCOUNT_FLAG, RIM_SIZE, product_type, number_of_tickets_per_visit, most_recent_visit))
+  return(df)
+}
+```
+

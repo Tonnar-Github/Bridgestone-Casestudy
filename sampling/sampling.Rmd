@@ -1,0 +1,167 @@
+---
+title: "Sampling"
+output: html_document
+---
+
+```{r, message = FALSE}
+library(vroom)
+library(dplyr)
+library(janitor)
+library(stringr)
+library(caret)
+```
+
+Read in join files
+```{r, message = FALSE}
+individual <- vroom('/data/p_dsi/bridgestone/data/individual.csv',
+                    col_types = c(MZB_INDIV_ID = 'd')) %>% 
+              filter(AH1_RES_BUS_INDC == 'R' & 
+                    SUPP1_BUS_PANDER == 'N' &
+                    EMAIL_OPTIN_IND == 'Y') %>% select(MZB_INDIV_ID)
+product <- vroom('/data/p_dsi/bridgestone/data/product.csv',delim = '|')
+store <- vroom('/data/p_dsi/bridgestone/data/store.csv',delim = '|',
+               col_types = c(ZIP_CODE = 'c', STORE_ID = 'd'))
+vehicle <- vroom('/data/p_dsi/bridgestone/data/vehicle.csv',delim = '|',
+                 col_types = c(VEHICLE_ID = 'c'))
+
+#list of sales data
+files <- list.files('/data/p_dsi/bridgestone/data/', pattern = '^sales_')
+pre_11_17 <- files[1:31]
+Nov_17 <- files[32]
+post_11_17 <- files[33:43]
+```
+
+Find all the eligible vehicles (vehicles belonging to eligible individuals that also have sales information in the data set.)
+```{r}
+#run time a little less than 2 hours
+# eligible_vehicles <- data.frame(VEHICLE_ID = character())
+# start <- Sys.time()
+# for (i in files) {
+#   currentFile <-vroom(paste0('/data/p_dsi/bridgestone/data/',i),delim='|',
+#                       col_types = c(INDIV_ID = 'd', VEHICLE_ID = 'c')) %>% 
+#     inner_join(individual, by = c("INDIV_ID" = "MZB_INDIV_ID")) %>% select(VEHICLE_ID) %>% unique()
+#  eligible_vehicles <- rbind(eligible_vehicles, currentFile) %>% unique() 
+# }
+```
+
+Find out which eligible vehicles bought tires in 11/17.
+```{r, message = FALSE}
+# #read in 11/17
+# nov_17_data <- vroom(paste0('/data/p_dsi/bridgestone/data/',Nov_17),delim='|',
+#                      col_types = c(INDIV_ID = 'd', STORE_ID = 'd', TRAN_ID = 'c', 
+#                                    VEHICLE_ID = 'c', ARTICLE_ID = 'd')) %>% 
+#   inner_join(individual, by = c("INDIV_ID" = "MZB_INDIV_ID")) %>% 
+#   left_join(vehicle, by = c("VEHICLE_ID")) %>% 
+#   left_join(product, by = "ARTICLE_ID")
+# 
+# #feature did buy tires in 11/17?
+# nov_17_data <- nov_17_data %>% group_by(VEHICLE_ID, PROD_GROUP_CODE) %>% 
+#   mutate(total_units = sum(UNITS)) %>% ungroup()
+# nov_17_data$bought_tires <- ifelse(nov_17_data$total_units > 0 & nov_17_data$PROD_GROUP_CODE == 5, 1, 0)
+# #all vehicles in november and whether they bought tires or not
+# v_tires_nov <- nov_17_data %>% select(VEHICLE_ID, bought_tires) %>% unique()
+# 
+# eligible_vehicles <- eligible_vehicles %>% left_join(v_tires_nov, by = c('VEHICLE_ID'))
+# eligible_vehicles$bought_tires <- ifelse(is.na(eligible_vehicles$bought_tires),0,eligible_vehicles$bought_tires)
+
+#write.table(eligible_vehicles, '/data/p_dsi/bridgestone/teams/team1/eligible_vehicles.csv', 
+#            sep = ',', row.names = FALSE)
+
+eligible_vehicles <- vroom('/data/p_dsi/bridgestone/teams/team1/eligible_vehicles.csv', delim = ',') %>% filter(VEHICLE_ID != 1)
+```
+
+splitting training and validation 
+```{r}
+set.seed(12345)
+
+undersampled_vehicles <- downSample(x = eligible_vehicles$VEHICLE_ID, y = as.factor(eligible_vehicles$bought_tires), yname = 'tires_bought')
+
+sample_size <- floor(0.6667*nrow(undersampled_vehicles))
+random_split <- sample(seq_len(nrow(undersampled_vehicles)),size = sample_size)
+train_vehicles <- undersampled_vehicles[random_split,]
+validation_vehicles <- undersampled_vehicles[-random_split,]
+train_vehicles$VEHICLE_ID <- as.character(train_vehicles$x)
+validation_vehicles$VEHICLE_ID <- as.character(validation_vehicles$x)
+train_vehicles <- train_vehicles %>% select(-x)
+validation_vehicles <- validation_vehicles %>% select(-x)
+```
+
+Functions used in sampling
+```{r}
+clean_data <- function(df) {
+  df$DISCOUNT_FLAG <- ifelse(df$DISCOUNT_FLAG == 'E', 'Y', df$DISCOUNT_FLAG)
+  df$CROSS_SECTION <- ifelse(df$CROSS_SECTION == 'NONE', NA, df$CROSS_SECTION)
+  df$CROSS_SECTION <- as.numeric(df$CROSS_SECTION)
+  df$ASPECT_RATIO <- ifelse(df$ASPECT_RATIO == 'NONE', NA, df$ASPECT_RATIO)
+  df$ASPECT_RATIO <- as.numeric(df$ASPECT_RATIO)
+  df$RIM_SIZE <- ifelse(str_detect(df$RIM_SIZE, '[[:alpha:]]'), NA, df$RIM_SIZE)
+  df$RIM_SIZE <- as.numeric(df$RIM_SIZE)
+  df$RIM_SIZE <- ifelse(df$RIM_SIZE > 1000, df$RIM_SIZE/100, df$RIM_SIZE)
+  df$MODEL_YEAR <- ifelse(df$MODEL_YEAR < 1900 | df$MODEL_YEAR > 2020, NA, df$MODEL_YEAR)
+  return(df)
+}
+
+read_data <- function(file_name) {
+  #read in sales file
+  data <- vroom(paste0('/data/p_dsi/bridgestone/data/',file_name),delim='|',
+              col_types = c(INDIV_ID = 'd', STORE_ID = 'd', TRAN_ID = 'c', 
+                            ARTICLE_ID = 'd', VEHICLE_ID = 'c')) %>% 
+    inner_join(individual, by = c("INDIV_ID" = "MZB_INDIV_ID")) %>% 
+    left_join(vehicle, by = c("VEHICLE_ID")) %>% 
+    left_join(product, by = "ARTICLE_ID") %>% 
+    left_join(store, by = "STORE_ID") %>% 
+    select(-STORE_ID, -ARTICLE_ID, -PROD_GROUP_CODE, -CATEGORY_CODE, -SEGMENT_CODE, -CLASS_CODE, -MSA)
+  #clean data
+  data <- clean_data(data)
+  return(data)
+}
+```
+** in for loop
+  2. read in sales for before 10/17
+  3. join with eligible individuals
+  4. filter for eligible individuals
+  5. join with vehicles
+  6. join with store and products
+** end for loop
+```{r, message = FALSE}
+#this took a little less than 2 hours to run
+start <- Sys.time()
+for (file in pre_11_17){
+  currentFile <- read_data(file)
+  #filter for training and validation data
+  train <- train_vehicles %>% inner_join(currentFile, by = c('VEHICLE_ID'))
+  validation <- validation_vehicles %>% inner_join(currentFile, by = c('VEHICLE_ID'))
+  #write data to file
+  write.table(train, '/data/p_dsi/bridgestone/teams/team1/training.csv', 
+            sep = ',', row.names = FALSE, append = TRUE)
+  write.table(validation, '/data/p_dsi/bridgestone/teams/team1/validation.csv', 
+            sep = ',', row.names = FALSE, append = TRUE)
+}
+end <- Sys.time()
+end - start
+```
+
+```{r. message = FALSE}
+train <- vroom('/data/p_dsi/bridgestone/teams/team1/training.csv', delim = ',')
+validate <- vroom('/data/p_dsi/bridgestone/teams/team1/validation.csv', delim = ',')
+```
+
+
+
+** training/testing data
+  7. read in 11/17 sales and join with other tables
+  8. create feature "did they buy tires in 11/17"?
+  9. get random sample -- save this as new df (write files)
+    a. run code to aggregate to vehicle level and create features
+    b. split into training and testing -- save these as new df (write files)
+  10. make sure representative sample of vehicles with tires purchases in 11/17 
+      a. stratified sample
+** end training/testing data
+** validation data
+  11. read in 12/17 - 10/18 and join with other tables
+  12. join that with pre 12/17 data
+  13. run code to aggregate to vehicle level and create features
+  14. filter out training/testing data -- save these as new df (write files)
+
+
+

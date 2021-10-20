@@ -14,5 +14,5 @@ Here you will find the final two models that were pushed into production before 
 ## Sampling
 As mentioned above the dataset in this case was very large but was still somewhat unbalanced. This folder contains our attempt to reconcile it
 
-##Results
+## Results
 Our model performed with nearly 12% accucary maining to correctly predict who would be a good target. This would generate bridgestone nearly a million dollars in extra revenue.
